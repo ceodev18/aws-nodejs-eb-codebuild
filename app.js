@@ -1,27 +1,39 @@
-// Load the AWS SDK
-var AWS = require('aws-sdk')
+var port = process.env.PORT || 3000,
+    http = require('http'),
+    fs = require('fs'),
+    html = fs.readFileSync('index.html');
 
-var express = require('express')
-var bodyParser = require('body-parser')
+var log = function(entry) {
+    fs.appendFileSync('/tmp/sample-app.log', new Date().toISOString() + ' - ' + entry + '\n');
+};
 
-// Set region for AWS SDKs
-AWS.config.region = process.env.REGION
+var server = http.createServer(function (req, res) {
+    if (req.method === 'POST') {
+        var body = '';
 
-var app = express()
+        req.on('data', function(chunk) {
+            body += chunk;
+        });
 
-app.set('view engine', 'pug')
-app.set('views', __dirname + '/views')
-app.use(bodyParser.urlencoded({extended:false}))
+        req.on('end', function() {
+            if (req.url === '/') {
+                log('Received message: ' + body);
+            } else if (req.url = '/scheduled') {
+                log('Received task ' + req.headers['x-aws-sqsd-taskname'] + ' scheduled at ' + req.headers['x-aws-sqsd-scheduled-at']);
+            }
 
-app.get('/', function (req, res) {
-  res.render('index', {
-    title: 'BackSpace Academy & Elastic Beanstalk'
-    })
-    res.status(200).end();
-})
+            res.writeHead(200, 'OK', {'Content-Type': 'text/plain'});
+            res.end();
+        });
+    } else {
+        res.writeHead(200);
+        res.write(html);
+        res.end();
+    }
+});
 
-var port = process.env.PORT || 3000
+// Listen on port 3000, IP defaults to 127.0.0.1
+server.listen(port);
 
-var server = app.listen(port, function () {
-  console.log('Server running at http://127.0.0.1:' + port + '/')
-})
+// Put a friendly message on the terminal
+console.log('Server running at http://127.0.0.1:' + port + '/');
